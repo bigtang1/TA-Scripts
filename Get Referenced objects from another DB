@@ -1,0 +1,34 @@
+SELECT TOP 0 * INTO #DBReferences FROM sys.dm_sql_referenced_entities ('sys.objects','OBJECT')
+WHERE referenced_database_name IS NOT NULL
+
+-- =============================================
+-- Declare and using a KEYSET cursor
+-- =============================================
+DECLARE ObjList CURSOR
+KEYSET
+FOR SELECT object_schema_name(object_id), name FROM sys.objects WHERE TYPE IN ('FN','V','SP')
+
+SELECT distinct type from sys.objects order by type
+
+DECLARE @schema varchar(256), @objname varchar(256), @refname varchar(256)
+
+OPEN ObjList
+
+FETCH NEXT FROM ObjList INTO @schema, @objname
+WHILE (@@fetch_status <> -1)
+BEGIN
+       IF (@@fetch_status <> -2)
+       BEGIN
+              SET @refname = quotename(@schema)+'.'+quotename(@objname)
+              INSERT INTO #DBReferences
+              SELECT * FROM sys.dm_sql_referenced_entities (@refname,'OBJECT')
+              WHERE referenced_database_name IS NOT NULL
+       END
+       FETCH NEXT FROM ObjList INTO @schema, @objname
+END
+
+CLOSE ObjList
+DEALLOCATE ObjList
+GO
+
+SELECT * FROM #DBReferences
