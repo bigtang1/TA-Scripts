@@ -1,0 +1,5 @@
+EXECUTE AS LOGIN = ‘US\aculross’;
+SELECT DISTINCT name, type 
+FROM sys.login_token 
+WHERE principal_id > 0;
+REVERT;
