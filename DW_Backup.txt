@@ -1,0 +1,11 @@
+
+BACKUP DATABASE [TRS_BI_Datawarehouse] TO  DISK = N'\\crdcr200\pegasysbkup\backup\sql2016\Adhoc\TRS_BI_Datawarehouse\TRS_BI_Datawarehouse_FullbackupFile1.bak',
+ DISK = N'\\crdcr200\pegasysbkup\backup\sql2016\Adhoc\TRS_BI_Datawarehouse\TRS_BI_Datawarehouse_FullbackupFile2.bak',
+ DISK = N'\\crdcr200\pegasysbkup\backup\sql2016\Adhoc\TRS_BI_Datawarehouse\TRS_BI_Datawarehouse_FullbackupFile3.bak',
+ DISK = N'\\crdcr200\pegasysbkup\backup\sql2016\Adhoc\TRS_BI_Datawarehouse\TRS_BI_Datawarehouse_FullbackupFile4.bak',
+ DISK = N'\\crdcr200\pegasysbkup\backup\sql2016\Adhoc\TRS_BI_Datawarehouse\TRS_BI_Datawarehouse_FullbackupFile5.bak',
+ DISK = N'\\crdcr200\pegasysbkup\backup\sql2016\Adhoc\TRS_BI_Datawarehouse\TRS_BI_Datawarehouse_FullbackupFile6.bak',
+ DISK = N'\\crdcr200\pegasysbkup\backup\sql2016\Adhoc\TRS_BI_Datawarehouse\TRS_BI_Datawarehouse_FullbackupFile7.bak',
+ DISK = N'\\crdcr200\pegasysbkup\backup\sql2016\Adhoc\TRS_BI_Datawarehouse\TRS_BI_Datawarehouse_FullbackupFile8.bak'
+ WITH  COPY_ONLY, NOFORMAT, NOINIT,  NAME = N'TRS_BI_Datawarehouse_backup_2017_03_18_072355_6693376', SKIP, REWIND, NOUNLOAD, COMPRESSION,  STATS = 10
+GO

@@ -1,0 +1,101 @@
+-----------------------------------------------------
+--
+-- Confirm location of AG
+--   QA only
+--   First confirm that the AG is primary on the 
+--    CRDBAAMFOQ01 node.  If on Q03, flip it back to Q01.
+--
+-----------------------------------------------------
+--
+-- Backup database to <Database_Name>_Before_Refresh_<Date>.BAK
+--   Check space on backup drive before you issue this.
+--   Clean up old backups if necessary.
+--
+-----------------------------------------------------
+--
+-- Drop DB from AG using GUI
+--   QA only
+--
+-----------------------------------------------------
+--
+-- Drop connections and drop database
+--
+USE BI_Admin
+EXEC usp_KillConnections @dbname = '<Database_Name>'
+GO
+DROP DATABASE <Database_Name>
+GO
+-----------------------------------------------------
+--
+-- Restore latest PROD backup database using GUI
+==   DEV restore: Restore to CRDBAAMFOD01
+--   QA  restore: Restore to CRDBAAMFOQ01
+--   QA  restore: Make sure that the transaction log
+--     backups are disabled before restoring database.
+--
+-----------------------------------------------------
+==
+-- Change Recovery mode to SIMPLE
+--   DEV Only.  Do not do this in QA
+--
+ALTER DATABASE [<Database_Name>] SET RECOVERY SIMPLE WITH NO_WAIT
+GO
+-----------------------------------------------------
+--
+-- Shrink transaction log
+--   Note, if you skip this step you will make the 
+--     restored log be larger than it needs to be.
+--
+USE [<Database_Name>]
+GO
+DBCC SHRINKFILE (N'inv_GDHOPS_Seed_log' , 2125)
+GO
+-----------------------------------------------------
+--
+-- Change DB ownwer to SA
+--
+USE [<Database_Name>]
+GO
+EXEC dbo.sp_changedbowner @loginame = N'sa', @map = false
+GO
+-----------------------------------------------------
+--
+-- Execute Perm scripts
+--   You can use sp_helpuser to compare security between
+--    restored database and another existing one.
+--   Perm scripts are in: E:\sqladmin\PermScripts
+--   Perm scripts are generated every day. So, you might
+--    want to confirm that they are there before you 
+--    drop your database.
+--
+-----------------------------------------------------
+--
+-- Post security cleanup
+--   DEV Only.  Do not do this in QA
+--
+USE [<Database_Name>]
+GO
+--ALTER ROLE [db_denydatawriter] DROP MEMBER [us\acrinvcoders]
+--GO
+ALTER ROLE [db_denydatawriter] DROP MEMBER [US\XUTATDDevelop]
+GO
+-----------------------------------------------------
+--
+-- Drop DB on QA Replica before adding DB AG
+--  Drop <Database_Name> on CRDBAAMFOQ03
+--
+-----------------------------------------------------
+--
+-- Add DB back to AG via GUI
+--   QA only
+--
+-----------------------------------------------------
+--
+-- Check AlwasyOn Health
+--   QA Only
+--   You should receive an email when you start that
+--    the AG is unhealthy.
+--   You should receive an email when you complete that
+--    the AG is healthy again.
+--   Or you can click on the AG and show "Dashboard"
+--

@@ -1,0 +1,13 @@
+--
+-- Show dimensions
+--   Use MDX query window 
+--
+SELECT 
+       [CATALOG_NAME] AS SSAS_Database_Name,
+       [CUBE_NAME] AS Cube_or_Perspective_Name,
+       [DIMENSION_NAME] AS Dimension_Name,
+       [DIMENSION_UNIQUE_NAME] AS Dimension_Real_Name,
+       [DIMENSION_CAPTION] AS Dimension_Caption,
+       [DIMENSION_IS_VISIBLE] AS Dimension_Visible 
+  FROM $SYSTEM.MDSCHEMA_DIMENSIONS 
+ ORDER BY DIMENSION_NAME

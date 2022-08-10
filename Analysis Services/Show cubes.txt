@@ -1,0 +1,13 @@
+--
+-- Show cubes
+--   Use MDX query window 
+--
+SELECT 
+       [CATALOG_NAME] AS SSAS_Database_Name,
+       [CUBE_NAME] AS Cube_or_Perspective_Name,
+       [CUBE_CAPTION] AS Cube_or_Perspective_Caption,
+       [CUBE_TYPE] AS Cube_Type,
+       [BASE_CUBE_NAME] AS Base_Cube 
+  FROM $SYSTEM.MDSCHEMA_CUBES 
+ WHERE CUBE_SOURCE = 1 
+ ORDER BY CUBE_NAME

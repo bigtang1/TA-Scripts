@@ -1,0 +1,6 @@
+--
+-- Show memory consumption by object
+--   Use MDX query window 
+--
+SELECT * 
+  FROM $System.discover_object_memory_usage

@@ -1,0 +1,6 @@
+--
+-- Show job info
+--   Use MDX query window 
+--
+SELECT * 
+  FROM $System.DISCOVER_JOBS

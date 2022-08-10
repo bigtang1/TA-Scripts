@@ -1,0 +1,12 @@
+--
+-- Show connection info
+--   Use MDX query window 
+--
+SELECT * 
+  FROM $System.DISCOVER_CONNECTIONS
+ ORDER BY CONNECTION_USER_NAME -- Research people online
+ --ORDER BY CONNECTION_IDLE_TIME_MS -- Research people who could be disconnected
+ --ORDER BY CONNECTION_LAST_COMMAND_ELAPSED_TIME_MS -- Research long running queries
+ --ORDER BY CONNECTION_HOST_APPLICATION -- Research apps connecting
+ --ORDER BY CONNECTION_START_TIME -- Research for range
+ --ORDER BY CONNECTION_END_TIME -- Research for range

@@ -1,0 +1,180 @@
+ CREATE PROCEDURE [dbo].[UD_GetListDBAccess]
+@db_name [varchar](100) = Null,
+@location [varchar](100) = Null
+WITH EXECUTE AS CALLER
+AS
+begin    
+set nocount on  
+ DECLARE @name sysname    
+ DECLARE @type varchar (1)    
+ DECLARE @hasaccess int    
+ DECLARE @denylogin int    
+ DECLARE @is_disabled int    
+ DECLARE @PWD_varbinary  varbinary (256)    
+ DECLARE @PWD_string  varchar (514)    
+ DECLARE @SID_varbinary varbinary (85)    
+ DECLARE @SID_string varchar (514)    
+ DECLARE @tmpstr  varchar (1024)    
+ DECLARE @is_policy_checked varchar (3)    
+ DECLARE @is_expiration_checked varchar (3)    
+ declare @login_name sysname ,@sql varchar(8000)    
+ set @login_name = null    
+ if @db_name is null    
+ begin    
+  raiserror('Procedure requires db_name',16,1,50001)    
+  goto endofproc    
+ end    
+ if not exists (select 1 from sys.databases where name=@db_name)
+ begin
+ raiserror('Invalid database Name',16,1,50001)    
+ goto endofproc
+ end
+ create table ##permission_info (id int primary key identity, information varchar(8000))    
+ DECLARE @defaultdb sysname    
+  create table #login_info(sid varbinary(85),name sysname,type char(1),is_disabled bit,default_database_name sysname,hasaccess int,denylogin int)    
+  -- DECLARE login_curs CURSOR FOR    
+    set @sql= 'SELECT p.sid, p.name, p.type, p.is_disabled, p.default_database_name, l.hasaccess, l.denylogin FROM    
+ sys.server_principals p LEFT JOIN master.sys.syslogins l ON ( l.name = p.name )    
+ inner join '+@db_name+'.sys.database_principals u ON (l.sid =U.SID)    
+     WHERE u.type IN ( ''S'',''G'',''U'' ) AND u.name not in ( ''sa'',''SamPull'',''SNation'')  and u.principal_id>4
+     order by p.name'      
+ insert into #login_info exec (@sql)    
+ 
+ if exists(select 1 from #login_info)
+ begin
+ DECLARE login_curs CURSOR FOR select * from #login_info    
+   
+ OPEN login_curs    
+   
+ FETCH NEXT FROM login_curs INTO @SID_varbinary, @name, @type, @is_disabled, @defaultdb, @hasaccess, @denylogin    
+ IF (@@fetch_status = -1)    
+ BEGIN    
+   PRINT 'No login(s) found.'    
+   CLOSE login_curs    
+   DEALLOCATE login_curs    
+ END    
+ insert into ##permission_info(information) values('USE '+@db_name)    
+ insert into ##permission_info(information) values('GO')    
+ SET @tmpstr = '/* Creating Login information '    
+ insert into ##permission_info(information) values(@tmpstr)    
+ SET @tmpstr = '** Generated ' + CONVERT (varchar, GETDATE()) + ' on ' + @@SERVERNAME + ' */'    
+ insert into ##permission_info(information) values(@tmpstr)    
+ insert into ##permission_info(information) values('')    
+ WHILE (@@fetch_status <> -1)    
+ BEGIN    
+   IF (@@fetch_status <> -2)    
+   BEGIN    
+  insert into ##permission_info(information) values('')    
+  SET @tmpstr = '-- Login: ' + @name    
+  insert into ##permission_info(information) values(@tmpstr)    
+  IF (@type IN ( 'G', 'U'))    
+  BEGIN -- NT authenticated account/group    
+    set @tmpstr = 'if not exists(select * from master.sys.server_principals where name = '''+@name+''')    
+ begin    
+ CREATE LOGIN ' + QUOTENAME( @name ) + ' FROM WINDOWS WITH DEFAULT_DATABASE = [' + @defaultdb + ']'    
+  END    
+  ELSE BEGIN -- SQL Server authentication    
+   -- obtain password and sid    
+    SET @PWD_varbinary = CAST( LOGINPROPERTY( @name, 'PasswordHash' ) AS varbinary (256) )    
+   EXEC sp_hexadecimal @PWD_varbinary, @PWD_string OUT    
+   EXEC sp_hexadecimal @SID_varbinary,@SID_string OUT    
+     
+   -- obtain password policy state    
+   SELECT @is_policy_checked = CASE is_policy_checked WHEN 1 THEN 'ON' WHEN 0 THEN 'OFF' ELSE NULL END FROM sys.sql_logins WHERE name = @name    
+   SELECT @is_expiration_checked = CASE is_expiration_checked WHEN 1 THEN 'ON' WHEN 0 THEN 'OFF' ELSE NULL END FROM sys.sql_logins WHERE name = @name    
+    set @tmpstr = 'if not exists(select * from master.sys.server_principals where name =''' + @name +''')    
+begin    
+ '    
+    SET @tmpstr = @tmpstr+'CREATE LOGIN ' + QUOTENAME( @name ) + ' WITH PASSWORD = ' + @PWD_string + ' HASHED, SID = ' + @SID_string + ', DEFAULT_DATABASE = [' + @defaultdb + ']'    
+   IF ( @is_policy_checked IS NOT NULL )    
+   BEGIN    
+     SET @tmpstr = @tmpstr + ', CHECK_POLICY = ' + @is_policy_checked    
+   END    
+   IF ( @is_expiration_checked IS NOT NULL )    
+   BEGIN    
+     SET @tmpstr = @tmpstr + ', CHECK_EXPIRATION = ' + @is_expiration_checked    
+   END    
+  END    
+  IF (@denylogin = 1)    
+  BEGIN -- login is denied access    
+    SET @tmpstr = @tmpstr + '; DENY CONNECT SQL TO ' + QUOTENAME( @name )    
+  END    
+  ELSE IF (@hasaccess = 0)    
+  BEGIN -- login exists but does not have access    
+    SET @tmpstr = @tmpstr + '; REVOKE CONNECT SQL TO ' + QUOTENAME( @name )    
+  END    
+  IF (@is_disabled = 1)    
+  BEGIN -- login is disabled    
+    SET @tmpstr = @tmpstr + '; ALTER LOGIN ' + QUOTENAME( @name ) + ' DISABLE'    
+  END    
+  set @tmpstr=@tmpstr+'    
+ end'    
+  insert into ##permission_info(information) values(@tmpstr)    
+   END    
+   
+   FETCH NEXT FROM login_curs INTO @SID_varbinary, @name, @type, @is_disabled, @defaultdb, @hasaccess, @denylogin    
+    END    
+ CLOSE login_curs    
+ DEALLOCATE login_curs    
+ end
+/*creating roles*/
+set @sql= 'select ''if not exists (select 1 from  '+@db_name+'.sys.database_principals where type =''''R'''' and name=''''''+name+'''''')
+create role [''+name+''];'' from '+@db_name+'.sys.database_principals where type=''R'' and principal_id not between 16384 and 16393 and principal_id <>0'    
+insert into ##permission_info(information) values('/* Creating Database Roles*/')    
+insert into ##permission_info(information) exec (@sql)    
+
+ /* creating database user*/    
+   
+ set @sql='select ''IF NOT EXISTS (SELECT 1 FROM ['+@db_name+'].SYS.database_principals SU INNER JOIN MASTER.SYS.server_principals SL ON SU.SID=SL.SID WHERE SU.NAME= ''''''+NAME+'''''')    
+ BEGIN    
+  IF EXISTS (SELECT 1 FROM ['+@DB_NAME+'].SYS.database_principals WHERE NAME =''''''+NAME+'''''')    
+  DROP USER [''+NAME+'']    
+  CREATE USER [''+name+''] FOR LOGIN [''+NAME+''] WITH DEFAULT_SCHEMA = ''+isnull(DEFAULT_SCHEMA_NAME,''dbo'') +''    
+ END''from ['+@db_name+'].sys.database_principals WHERE PRINCIPAL_ID>4 AND TYPE in (''s'',''u'',''g'') order by name'    
+ insert into ##permission_info(information) values('/* GRANTING PERMISSIONS TO DATABASE*/')    
+   
+ insert into ##permission_info(information) exec (@sql)    
+ --print @sql    
+ /* GRANTING DBROLE PERMISSIONS*/    
+   
+ set @sql ='select ''exec sp_addrolemember ''''''+dpr.name+'''''',''''''+dpm.name+'''''';''    
+ from ['+@db_name+'].sys.database_principals dpr    
+ inner join ['+@db_name+'].sys.database_role_members drm on dpr.principal_id=drm.role_principal_id    
+ inner join ['+@db_name+'].sys.database_principals dpm on drm.member_principal_id=dpm.principal_id    
+ where dpm.name<>''dbo'' order by dpr.name,dpm.name'    
+   
+ insert into ##permission_info(information) exec (@sql)    
+ insert into ##permission_info(information) values('/* GRANTING DBROLE PERMISSIONS*/')
+ set @sql='select case class_desc when ''OBJECT_OR_COLUMN'' then State_Desc+'' ''+DPER.PERMISSION_NAME COLLATE DATABASE_DEFAULT+'' ON OBJECT::''+sch.name+''.''+obj.name+'' TO ''+ QUOTENAME(dpri.name)  
+when ''Database'' then State_Desc+''  ''+DPER.PERMISSION_NAME COLLATE DATABASE_DEFAULT+'' ON ''+class_desc+''::'+@db_name+' TO ''+Quotename(dpri.name)  
+when ''Schema'' then State_Desc+''  ''+DPER.PERMISSION_NAME COLLATE DATABASE_DEFAULT+'' ON ''+class_desc+''::''+(select name from ['+@db_name+'].sys.schemas where schema_id=dper.major_id)+'' TO ''+Quotename(dpri.name) end
+from ['+@db_name+'].sys.database_permissions dper    
+inner join ['+@db_name+'].sys.database_principals dpri on  dper.grantee_principal_id = dpri.principal_id    
+left join ['+@db_name+'].sys.objects obj on dper.major_id=obj.object_id    
+left join ['+@db_name+'].sys.schemas sch on obj.schema_id=sch.schema_id    
+where major_id>=0 and class_desc in (''OBJECT_OR_COLUMN'',''Database'',''Schema'') order by State_Desc,DPER.PERMISSION_NAME,class_desc,dpri.name,sch.name,obj.name'
+--print @sql  
+-- SET @SQL='select ''Grant ''+DPER.PERMISSION_NAME COLLATE DATABASE_DEFAULT +'' ON OBJECT::''+sch.name+''.''+obj.name+'' TO ''+dpri.name    
+-- from '+@db_name+'.sys.database_permissions dper    
+-- inner join '+@db_name+'.sys.database_principals dpri on  dper.grantee_principal_id = dpri.principal_id    
+-- inner join '+@db_name+'.sys.objects obj on dper.major_id=obj.object_id    
+-- inner join '+@db_name+'.sys.schemas sch on obj.schema_id=sch.schema_id    
+-- where class=1 and major_id>0 and state_desc=''GRANT'''    
+ --print @sql    
+ insert into ##permission_info(information) EXEC (@SQL)    
+ --select information from ##permission_info order by id    
+ drop table #login_info    
+ --    
+ if @location is not null    
+ begin    
+  set @sql= 'exec master..xp_cmdshell ''bcp "select information from ##permission_info where information is not null order by id" queryout '+'"' + @location+@db_name+'\'+@db_name+'_druserlist.txt" -T -c'''    
+  exec (@sql)    
+ END    
+ ELSE    
+ BEGIN    
+  SELECT INFORMATION FROM ##PERMISSION_INFO    
+ END    
+ --select information from ##permission_info order by id    
+ drop table ##permission_info    
+endofproc:
+end --proc 

@@ -1,0 +1,11 @@
+I think that part of your question might have been how to even add those nodes.  Well, that is a method that we all should be familiar with when dealing with large AlwaysOn databases.  
+Basically:
+•	Assuming that Secondary has security mirrored the same as Primary (script out logins with SIDs on Primary and create on Secondary)
+•	Turn off log backups on Primary
+•	Do FULL backup on Primary
+•	Do LOG backup on Primary
+•	Restore FULL backupto Secondary with NO RECOVERY
+•	Restore LOG to Secondary with NO RECOVERY
+•	Then you add the node to the cluster with GUI or TSQL with JOIN only so that it is instantaneous and takes seconds.  Once node is in the cluster then you re-enable the LOG backups
+•	Actually, the primary database should never go offline during this.
+•	That is the process in summary

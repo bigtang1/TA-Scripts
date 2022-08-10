@@ -1,0 +1,6 @@
+--
+-- Show instance info
+--   Use MDX query window 
+--
+SELECT * 
+  FROM SYSTEMRESTRICTSCHEMA ($SYSTEM.DISCOVER_INSTANCES, INSTANCE_NAME='<Instance_Name>')

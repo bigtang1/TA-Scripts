@@ -1,0 +1,6 @@
+--
+-- Show data source property info
+--   Use MDX query window 
+--
+SELECT * 
+  FROM $System.discover_properties

@@ -1,0 +1,5 @@
+<Cancel xmlns="http://schemas.microsoft.com/analysisservices/2003/engine">
+
+	<SPID>put_spid#_here</SPID>
+
+</Cancel>

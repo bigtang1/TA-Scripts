@@ -1,0 +1,6 @@
+--
+-- Show tables
+--   Use MDX query window 
+--
+SELECT * 
+  FROM $SYSTEM.DBSCHEMA_TABLES

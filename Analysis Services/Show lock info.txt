@@ -1,0 +1,6 @@
+--
+-- Show lock info
+--   Use MDX query window 
+--
+SELECT * 
+  FROM $System.discover_locks

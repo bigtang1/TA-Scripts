@@ -1,0 +1,131 @@
+/***SET RESULTS TO TEXT TO ENSURE FULL OUTPUT******/
+/**
+NOTE:  This script should be run once prior to a database restore to generate the
+appropriate permissions scripts.  Set results to text or to file and save it.
+
+First, you will run the script on the database prior to a restore and retain the output.
+Second, restore the database, run the output of first script.
+Then run the output of that script again to drop any users.
+Finally repair any orphaned users.
+
+Campbell  7-11-2011
+**/
+
+/*** NOTE- THIS SCRIPT RETAINS PERMISSIONS BUT DOES NOT REPAIR ORPHANED USERS
+YOU MUST STILL RUN SP_CHANGE_USERS_LOGIN TO REPAIR ORPHANED USERS
+***/
+
+-- The following line produces the USE statement.  The database name restored 
+--  to is often not the same as the one the backup came from, so the statement should be edited.
+--print 'USE ['+db_name()+']'
+---print 'USE [EnterDestDatabaseName]'
+Print 'USE ' + db_name()
+print 'go'
+
+--next block enters some comments at the start of our script
+SET NOCOUNT ON
+
+print'--paste these results into new query window and run with results to text,'
+print'--then execute the drop statement output again'
+print'--permissions script for ' +db_name()+' on '+@@servername
+print ' '
+
+--If there are any user created roles, the following will recreate that role
+if ((select COUNT (name) from sys.database_principals where type='R' and is_fixed_role =0 and name!='public') >0)
+begin
+
+print '--recreate any user created roles'
+select 'If Not Exists(Select 1 from sys.Database_Principals Where Name = '''+name+''' and Type=''R'') Create role ['+name+'] authorization [dbo]' from sys.database_principals where type='R' and is_fixed_role =0 and name!='public'
+
+end
+else
+begin
+
+print '--no user created roles to script'
+
+end
+
+print 'go'
+
+--This next block creates the statements to grant users access to the database  This is
+--our first opportunity for an "expected error".  If a user exists in both environments,
+--we try to grant it access and might get the error "the user already exists".  If so,
+--we can just ignore that error.
+
+print'--grant users access.  If a user exists in both environments,
+--we try to grant it access and might get the error "the user already exists".  If so,
+--we can just ignore that error.'
+
+
+SELECT 'If Not Exists(Select 1 from sys.Database_Principals Where Name = '''+dp.name collate SQL_Latin1_General_CP1_CI_AS+''' and Type<> ''R'') CREATE USER ['+dp.name collate SQL_Latin1_General_CP1_CI_AS+'] FOR LOGIN ['+sp.name collate SQL_Latin1_General_CP1_CI_AS+']'
+FROM sys.database_principals dp 
+  JOIN sys.server_principals sp 
+    ON dp.sid = sp.sid 
+WHERE dp.name <> 'dbo'
+
+
+print 'go'
+
+--Now we add users to roles.  Pretty straight forward here:
+PRINT '--add users to roles'
+select 'EXEC sp_addrolemember ' + '@rolename=['+r.name+ '], @membername= ['+ m.name+']'
+ from sys.database_role_members rm
+  join sys.database_principals r on rm.role_principal_id = r.principal_id
+  join sys.database_principals m on rm.member_principal_id = m.principal_id
+ where m.name!='dbo'
+ order by r.name, m.name
+
+Print 'GO'
+--Now we generate table/object level permissions. 
+select p.state_desc + ' ' + p.permission_name + ' ON [' + s.name +'].['+ o.name collate Latin1_general_CI_AS+ '] TO [' + u.name collate Latin1_general_CI_AS + ']' from sys.database_permissions p inner join sys.objects o on p.major_id = o.object_id inner join sys.schemas s on s.schema_id = o.schema_id inner join sys.database_principals u on p.grantee_principal_id = u.principal_id 
+where p.minor_id = 0 and O.type <> 'S'
+
+Print 'GO'
+
+--Now we generate column level permissions. 
+print '--column level perms'
+select p.state_desc + ' ' + p.permission_name + ' ON [' + s.name +'].['+ o.name collate Latin1_general_CI_AS+ '] (' + c.name + ') TO [' + u.name collate Latin1_general_CI_AS + ']' 
+from sys.database_permissions p inner join sys.objects o on p.major_id = o.object_id 
+INNER JOIN sys.columns c ON c.OBJECT_ID = o.OBJECT_ID AND c.column_id = p.minor_id 
+inner join sys.schemas s on s.schema_id = o.schema_id 
+inner join sys.database_principals u on p.grantee_principal_id = u.principal_id 
+where p.minor_id <> 0
+print 'go'
+
+---Script out schema-level permissions
+select p.state_desc + ' ' + p.permission_name + 
+' ON SCHEMA:: ' + S.Name +
+' TO [' + u.name collate Latin1_general_CI_AS + ']' 
+from sys.database_permissions p 
+inner join sys.database_principals u on p.grantee_principal_id = u.principal_id
+INNER JOIN sys.schemas S on P.major_id = S.schema_id
+where p.class_desc='SCHEMA' and u.name !='dbo'
+
+Print 'Go'
+
+--Following is database wide permissions.  for example, if you "grant execute to USER" and don't include an ON statement,
+-- the object level permissions will not pick that up.  This does:
+print '--grant database wide permissions'
+
+select p.state_desc + ' ' + p.permission_name +' TO [' + u.name collate Latin1_general_CI_AS + ']' from sys.database_permissions p inner join sys.database_principals u on p.grantee_principal_id = u.principal_id
+ where p.class_desc='DATABASE' and u.name !='dbo'
+
+/**Next part generates a select statement which will create a "drop user" statement on the restored database. 
+
+So, you will run the script, restore the database, run the output of first script,
+then run the output of that script again... it's simpler than it sounds
+**/
+
+print 'go'
+PRINT'--list of users to drop'
+
+select 'select ''drop user[''+name+'']'' from sysusers where name not in('
+
+select ''''+name+''',' from sysusers
+PRINT '''dropusername'')'
+
+--In some cases, the script to "drop users" will want to drop a user that owns a schema and this will create an error.
+--This is to be expected and you need to decide how you want to deal with it.  If there are no objects in the schema
+--perhaps just drop it.  If the user owns objects, that needs to be dealt with differently and your cross environment
+--restore needs to be discussed with the data owners. 
+PRINT'--REMEMBER TO RUN SP_CHANGE_USERS_LOGIN'

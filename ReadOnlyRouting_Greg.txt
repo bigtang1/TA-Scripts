@@ -1,0 +1,18 @@
+Greg
+
+1) Command Prompt:                                    SQLCMD -?  
+(this will display you your version and other information, you want 11.0 or 13.0 - preferred).
+
+2) Connect to the AG/Listener:                  SQLCMD -E -SCRTARDMPHAL –dWorkPlaceExperience
+     (Normal Connection)                                (this will connect you to that AG Listener and Database using trusted authentication)
+                                                                                1> select @@servername
+                                                                                2> go
+                                                                                ------------------ CRDBTTBISQLP03\SQL01  (shows we are on the primary)
+                                                                                Quit
+
+3) Connect to the AG/Listener                   SQLCMD -E -SCRTARDMPHAL –dWorkPlaceExperience -KReadOnly
+     (ReadOnly Connection)                            (this will connect you to that AG Listener and Database using trusted authentication with ReadOnly)
+                                                                                1> select @@servername
+                                                                                2> go
+                                                                                ------------------ CRDBTTEXSQLP03\SQL01  (shows we are on a secondary)
+                                                                                Quit

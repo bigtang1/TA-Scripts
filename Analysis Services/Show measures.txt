@@ -1,0 +1,16 @@
+--
+-- Show measures
+--   Use MDX query window 
+--
+SELECT 
+       [CATALOG_NAME]       AS SSAS_Database_Name,
+       [CUBE_NAME]          AS Cube_or_Perspective_Name,
+       MEASUREGROUP_NAME  AS MeasureGroup_Name,
+       MEASURE_NAME       AS Measure_Name,
+       MEASURE_Caption    AS Measure_Caption,
+       MEASURE_IS_VISIBLE AS Dimension_Visible,
+       MEASURE_AGGREGATOR AS Measure_Aggregator,
+       DEFAULT_FORMAT_STRING AS [Format_String],
+       EXPRESSION         AS Calculated_Measure_Expression 
+  FROM $SYSTEM.MDSCHEMA_MEASURES 
+ ORDER BY MEASURE_NAME

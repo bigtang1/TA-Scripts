@@ -1,0 +1,6 @@
+--
+-- Show open transaction info
+--   Use MDX query window 
+--
+SELECT * 
+  FROM $System.discover_transactions

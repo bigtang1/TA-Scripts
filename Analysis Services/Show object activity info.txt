@@ -1,0 +1,8 @@
+--
+-- Show object activity info
+--   Use MDX query window 
+--
+SELECT * 
+  FROM $System.discover_object_activity
+ ORDER BY OBJECT_CPU_TIME_MS DESC
+--ORDER BY OBJECT_READS
